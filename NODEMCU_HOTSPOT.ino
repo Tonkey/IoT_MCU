@@ -6,12 +6,10 @@
 
 const char *ssid = "test";
 
-const char *password = "password";
-
 // External Variables
-int minMoistureLevel= 0;
-int waterTime= 0;
-String plantName= "";
+int minMoistureLevel= 500;
+int waterTime= 5000;
+String plantName= "Initial Setup";
 
 // Internal Variables
 int currMoistureLevel= 0;
@@ -73,7 +71,7 @@ Serial.println();
 
 Serial.print("Configuring access point...");
 
-WiFi.softAP(ssid, password);
+WiFi.softAP(ssid);
 
 IPAddress myIP = WiFi.softAPIP();
 
@@ -89,7 +87,7 @@ server.begin();
 
 printMsg("HTTP server started");
 
-// pin setup
+// Pin Setup
 gpio.mode(mPower, OUTPUT); // set Moisture Power Pin to OUTPUT
 gpio.write(mPower, LOW); // Make sure Moisture Power Pin is turned off
 
@@ -123,7 +121,7 @@ void readMoisture(){
   gpio.write(mPower, HIGH); // power on 
   delay(2000); // delay 2second to let sensor warm up
   adc.read(0); // dummy read to discard potential fluke at initial reading
-  currMoistureLevel= adc.read(0); //read and set moisture level
+  currMoistureLevel= adc.read(0); // read and set moisture level
   delay(500);
   gpio.write(mPower, LOW); // power off 
 }
