@@ -7,9 +7,9 @@
 const char *ssid = "test";
 
 // External Variables
-int minMoistureLevel= 500;
-int waterTime= 5000;
-String plantName= "Initial Setup";
+String minMoistureLevel= "500";
+String waterTime= "5000";
+String plantName= "initial setup";
 
 // Internal Variables
 int currMoistureLevel= 0;
@@ -19,45 +19,52 @@ bool doWater= false;
 
 // Pin Assigments
 // Water Sensor
-int wPower= GPIO5;
-int wInput= GPIO16;
+int wPower= 14; // currently not used as digital pins doesn't provide enough power
+int wInput= 2;
 
 // Moisture Sensor
-int mPower= GPIO4;
+int mPower= 4;
 // ADC Input always 0
 
 // Water Pump
-int pPower= GPIO0;
+int pPower= 0;
 
 ESP8266WebServer server(80);
 
 void handleRoot() {
-
-server.send(200, "text/html", "<h1>You are connected</h1>");
+  Serial.println("Handling client on /");
+String temp= "{\"plantName\": \"" + plantName + "\"}";
+server.send(200, "application/json", temp);
 
 }
 // server calls
 void handleData(){
+  Serial.println("Handling client on /data");
   if(server.hasArg("minMoistureLevel")){
     minMoistureLevel = server.arg("minMoistureLevel");
+    Serial.println("new moistureLevel: " + minMoistureLevel);
   } else {
     Serial.println("did not find an arguement with Key: moistureLevel"); 
   };
   if(server.hasArg("waterTime")){
     waterTime = server.arg("waterTime");
+    Serial.println("new waterTime: " + waterTime);
   } else {
     Serial.println("did not find an arguement with Key: waterAt"); 
   };
   if(server.hasArg("plantName")){
     plantName= server.arg("plantName");
+    Serial.println("new plantName: " + plantName);
   } else {
     Serial.println("did not find an arguement with Key: plantName");
   };
-  server.send(200, "text/html", "<h1>"+moistureLevel+"</h1><h2>"+waterTime+"</h2>");
+  
+  //server.send(200, "text/html", "<h1>"+minMoistureLevel+"</h1><h2>"+waterTime+"</h2><h2>"+plantName+"</h2>");
+  server.send(200, "application/json", "{\"moisture\": \""+minMoistureLevel+"\", \"water\": \""+waterTime+"\", \"plantName\": \""+plantName+"\"}");
 }
 
 void sendWarning(){
-  server.send(500, "text/html", "<h1>The water level is below minimum, please refill the water tank!!!</h1>")
+  server.send(500, "text/html", "<h1>The water level is below minimum, please refill the water tank!!!</h1>");
 }
 
 // setup and main loop
@@ -65,12 +72,12 @@ void setup() {
 
 delay(1000);
 
-Serial.begin(115200);
+Serial.begin(9600);
 
 Serial.println();
 
 Serial.print("Configuring access point...");
-
+WiFi.softAPConfig(IPAddress(192,168,4,1),IPAddress(192,168,4,1),IPAddress(255,255,255,0));
 WiFi.softAP(ssid);
 
 IPAddress myIP = WiFi.softAPIP();
@@ -88,15 +95,15 @@ server.begin();
 printMsg("HTTP server started");
 
 // Pin Setup
-gpio.mode(mPower, OUTPUT); // set Moisture Power Pin to OUTPUT
-gpio.write(mPower, LOW); // Make sure Moisture Power Pin is turned off
+pinMode(mPower, OUTPUT); // set Moisture Power Pin to OUTPUT
+digitalWrite(mPower, LOW); // Make sure Moisture Power Pin is turned off
 
-gpio.mode(wPower, OUTPUT); // set WaterSensor Power Pin to OUTPUT
-gpio.write(wPower, LOW); // Make sure WaterSensor Power Pin is turned off
-gpio.mode(wInput, INPUT); // Set WaterSensor Input Pin to INPUT
+pinMode(wPower, OUTPUT); // set WaterSensor Power Pin to OUTPUT
+digitalWrite(wPower, LOW); // Make sure WaterSensor Power Pin is turned off
+pinMode(wInput, INPUT); // Set WaterSensor Input Pin to INPUT
 
-gpio.mode(pPower, OUTPUT); // set Water Pump Pin to OUTPUT
-gpio.write(pPower, LOW); // Make sure Water Pump Pin is turned off
+pinMode(pPower, OUTPUT); // set Water Pump Pin to OUTPUT
+digitalWrite(pPower, LOW); // Make sure Water Pump Pin is turned off
 }
 
 void loop() {
@@ -118,25 +125,36 @@ server.handleClient();
 
 // utility methods
 void readMoisture(){
-  gpio.write(mPower, HIGH); // power on 
+  digitalWrite(mPower, HIGH); // power on 
   delay(2000); // delay 2second to let sensor warm up
-  adc.read(0); // dummy read to discard potential fluke at initial reading
-  currMoistureLevel= adc.read(0); // read and set moisture level
+  analogRead(0); // dummy read to discard potential fluke at initial reading
+  currMoistureLevel= analogRead(0); // read and set moisture level
   delay(500);
-  gpio.write(mPower, LOW); // power off 
+  digitalWrite(mPower, LOW); // power off 
+  String temp= "CurrentMoistureLevel: " + String(currMoistureLevel);
+  printMsg(temp);
 }
 
 void readWaterLevel(){
-  gpio.write(wPower, HIGH); // power on
+  analogWrite(wPower, 1023);
+  //digitalWrite(wPower, HIGH); // power on
   delay(1000); // delay 1second to let sensor warm up
-  currWaterLevel= gpio.read(wInput); // read and set water level
+  currWaterLevel= digitalRead(wInput); // read and set water level
+  Serial.println(currWaterLevel);
   if(currWaterLevel == 0){
     lowWater= true; // if water level is 0, set lowWater to true
   } else {
     lowWater= false; // else set to false
   };
   delay(500);
-  gpio.write(wPower, LOW); // power off
+  analogWrite(wPower, 0);
+  //digitalWrite(wPower, LOW); // power off
+  if(lowWater){
+    printMsg("WaterLevel is LOW");
+  } else {
+    printMsg("WaterLevel is FINE");
+  };
+  
 }
 
 void lowWaterWarn(){
@@ -146,7 +164,7 @@ void lowWaterWarn(){
 }
 
 void shouldWater(){
-  if(currMoistureLevel <= minMoistureLevel){ // minMoistureLevel aquired from external program!
+  if(currMoistureLevel <= minMoistureLevel.toInt()){ // minMoistureLevel aquired from external program!
     doWater= true;
   } else {
     doWater= false;
@@ -154,10 +172,11 @@ void shouldWater(){
 }
 
 void waterPlant(){
+  
   if(doWater){
-    gpio.write(pPower, HIGH); // power on
-    delay(waterTime); // water time in milliseconds, aquired from external program! OBS! Pumps 0,0276 L per 1 Second
-    gpio.write(pPower, LOW); // power off
+    digitalWrite(pPower, HIGH); // power on
+    delay(waterTime.toInt()); // water time in milliseconds, aquired from external program! OBS! Pumps 0,0276 L per 1 Second
+    digitalWrite(pPower, LOW); // power off
   }; 
 }
 
@@ -165,5 +184,3 @@ void printMsg(String msg){
   Serial.println(msg);
   Serial.println("--------------------------");
 }
-
-
