@@ -17,17 +17,17 @@ int currWaterLevel= 1;
 bool lowWater= false;
 bool doWater= false;
 
-// Pin Assigments
+// Pin Assignment
+// Arduino -> NodeMCU
+int sensorSwitch= 5; // Grey h/s dupont jumper
+int pumpSwitch= 4;   // White/White s/s h/h dupont jumper
+
 // Water Sensor
-int wPower= 14; // currently not used as digital pins doesn't provide enough power
-int wInput= 2;
+int wSensorInput= 12; // Yellow s/s dupont jumper
 
 // Moisture Sensor
-int mPower= 4;
-// ADC Input always 0
-
-// Water Pump
-int pPower= 0;
+int mSensorPower= 14; // Purple s/s dupont jumper
+// no declaration for input, as there is only one analog input.
 
 ESP8266WebServer server(80);
 
@@ -95,15 +95,12 @@ server.begin();
 printMsg("HTTP server started");
 
 // Pin Setup
-pinMode(mPower, OUTPUT); // set Moisture Power Pin to OUTPUT
-digitalWrite(mPower, LOW); // Make sure Moisture Power Pin is turned off
+pinMode(sensorSwitch, OUTPUT);
+pinMode(pumpSwitch, OUTPUT);
 
-pinMode(wPower, OUTPUT); // set WaterSensor Power Pin to OUTPUT
-digitalWrite(wPower, LOW); // Make sure WaterSensor Power Pin is turned off
-pinMode(wInput, INPUT); // Set WaterSensor Input Pin to INPUT
+pinMode(wSensorInput, INPUT);
 
-pinMode(pPower, OUTPUT); // set Water Pump Pin to OUTPUT
-digitalWrite(pPower, LOW); // Make sure Water Pump Pin is turned off
+pinMode(mSensorPower, OUTPUT);
 }
 
 void loop() {
@@ -125,38 +122,31 @@ server.handleClient();
 
 // utility methods
 void readMoisture(){
-  digitalWrite(mPower, HIGH); // power on 
+  digitalWrite(mSensorPower, HIGH); // power on 
   delay(2000); // delay 2second to let sensor warm up
   analogRead(0); // dummy read to discard potential fluke at initial reading
   currMoistureLevel= analogRead(0); // read and set moisture level
   delay(500);
-  digitalWrite(mPower, LOW); // power off 
+  digitalWrite(mSensorPower, LOW); // power off 
   String temp= "CurrentMoistureLevel: " + String(currMoistureLevel);
   printMsg(temp);
 }
 
 void readWaterLevel(){
-  analogWrite(wPower, 1023);
-  //digitalWrite(wPower, HIGH); // power on
-  delay(1000); // delay 1second to let sensor warm up
-  currWaterLevel= digitalRead(wInput); // read and set water level
-  Serial.println(currWaterLevel);
-  if(currWaterLevel == 0){
-    lowWater= true; // if water level is 0, set lowWater to true
-  } else {
-    lowWater= false; // else set to false
-  };
+  digitalWrite(sensorSwitch, HIGH); // Tell arduino to turn water sensor on
+  delay(500); // delay to make sure water sensor has time to turn on
+  digitalRead(wSensorInput); // dummy read to discard potential fluke at initial reading
+  currWaterLevel= digitalRead(wSensorInput);
   delay(500);
-  analogWrite(wPower, 0);
-  //digitalWrite(wPower, LOW); // power off
-  if(lowWater){
-    printMsg("WaterLevel is LOW");
+  digitalWrite(sensorSwitch, LOW); // Tell arduino to turn water sensor off
+  if(currWaterLevel == 1){
+    lowWater= false;
   } else {
-    printMsg("WaterLevel is FINE");
-  };
-  
+    lowWater= true;
+  }
 }
 
+// serves no actual purpose, think about removing this in future
 void lowWaterWarn(){
   if(lowWater){
     sendWarning();
@@ -172,12 +162,10 @@ void shouldWater(){
 }
 
 void waterPlant(){
-  
-  if(doWater){
-    digitalWrite(pPower, HIGH); // power on
-    delay(waterTime.toInt()); // water time in milliseconds, aquired from external program! OBS! Pumps 0,0276 L per 1 Second
-    digitalWrite(pPower, LOW); // power off
-  }; 
+  digitalWrite(pumpSwitch, HIGH); // Tell arduino to turn water pump on
+  delay(1000); // give pump time to start up
+  delay(waterTime.toInt()); // Water for x amount of time recieved from external source
+  digitalWrite(pumpSwitch, LOW); // Tell arduino to turn water pump off
 }
 
 void printMsg(String msg){
