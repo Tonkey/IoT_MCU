@@ -144,6 +144,7 @@ void readWaterLevel(){
   } else {
     lowWater= true;
   }
+  Serial.println(currWaterLevel);
 }
 
 // serves no actual purpose, think about removing this in future
@@ -162,10 +163,12 @@ void shouldWater(){
 }
 
 void waterPlant(){
+  Serial.println("Starting Water Function");
   digitalWrite(pumpSwitch, HIGH); // Tell arduino to turn water pump on
-  delay(1000); // give pump time to start up
+  delay(2000); // give pump time to start up
   delay(waterTime.toInt()); // Water for x amount of time recieved from external source
   digitalWrite(pumpSwitch, LOW); // Tell arduino to turn water pump off
+  Serial.println("Stopping Water Function");
 }
 
 void printMsg(String msg){

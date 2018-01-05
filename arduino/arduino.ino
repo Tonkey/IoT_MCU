@@ -39,6 +39,7 @@ void loop() {
 
 
 void waterSensor(){
+  Serial.println("Water Sensor Starting");
   while(doSense){
     digitalWrite(sensorPower, HIGH);
     shouldSense();
@@ -47,11 +48,13 @@ void waterSensor(){
 }
 
 void waterPump(){
+  Serial.println("Water Pump Starting");
   while(doPump){
     digitalWrite(pumpPower, HIGH);
     shouldPump();
   };
   digitalWrite(pumpPower, LOW);
+  Serial.println("Water Pump Done");
 }
 
 void shouldSense(){
